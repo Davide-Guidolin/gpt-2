@@ -2,24 +2,31 @@ import torch
 import torch.nn.functional as F
 
 from gpt2 import GPT
+from config import GPTConfig
 import tiktoken
 
 torch.manual_seed(42)
 torch.cuda.manual_seed(42)
 
-prompt = "Hello, I'm a language model,"
+device = "cpu"
+if torch.cuda.is_available():
+    device = "cuda"
+    
+print(f"Using device: {device}")
+
+prompt = "Hello, I'm a language model and"
 num_return_sequences = 5
 max_length = 30
 
-model = GPT.from_pretrained('gpt2')
+model = GPT(GPTConfig()) # GPT.from_pretrained('gpt2')
 model.eval()
-model.to('cuda')
+model.to(device)
 
 enc = tiktoken.get_encoding('gpt2')
 tokens = enc.encode(prompt)
 tokens = torch.tensor(tokens, dtype=torch.long)
 tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1)
-x = tokens.to('cuda')
+x = tokens.to(device)
 
 while x.size(1) < max_length:
     with torch.no_grad():
