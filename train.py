@@ -5,8 +5,9 @@ from config import GPTConfig
 from data import DataLoaderLite
 
 # seed
-torch.manual_seed(42)
-torch.cuda.manual_seed(42)
+torch.manual_seed(1337)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed(1337)
 
 # constants
 B = 4   # batch size
