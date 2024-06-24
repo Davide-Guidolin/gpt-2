@@ -7,7 +7,7 @@ from data import DataLoaderLite
 
 # constants
 B = 4   # batch size
-T = 32  # tokens per sample
+T = 128  # tokens per sample
 
 # seed
 torch.manual_seed(1337)
@@ -19,26 +19,37 @@ device = "cpu"
 if torch.cuda.is_available():
     device = "cuda"
     
-device = "cpu" # override device due to out of memory. Running on 2GB GPU
-    
 print(f"Using device: {device}")
 
 train_loader = DataLoaderLite(B, T)
 
+# use tf32 if available
+torch.set_float32_matmul_precision("high")
+
 # create model
-model = GPT(GPTConfig())
+model = GPT(GPTConfig(vocab_size=50304))
 model.to(device)
+print(f"Total parameters: {sum(p.numel() for p in model.parameters())/1e6:.1f}M")
+if device == "cuda":
+    cuda_cap = torch.cuda.get_device_capability()
+    if cuda_cap[0] >= 7:
+        model = torch.compile(model)
+    else:
+        print(f"Cannot compile the model. Cuda capability {cuda_cap[0]}.{cuda_cap[1]} < 7.0")
 
 # optimizer
 optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+
+model.to(torch.bfloat16)
 
 for i in range(50):
     t0 = time.time()
     x, y = train_loader.next_batch()
     x, y = x.to(device), y.to(device)
     optimizer.zero_grad()
-    # get logits and loss
-    logits, loss = model(x, y)
+    with torch.autocast(device_type=device, dtype=torch.bfloat16):
+        # get logits and loss
+        logits, loss = model(x, y)
     # backward and step
     loss.backward()
     optimizer.step()

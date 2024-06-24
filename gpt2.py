@@ -34,10 +34,15 @@ class CausalSelfAttention(nn.Module):
         q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, n_heads, T , head_size)
         v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, n_heads, T , head_size)
         
-        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
-        att = F.softmax(att, dim=-1)
-        y = att @ v
+        # attention
+        # att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+        # att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
+        # att = F.softmax(att, dim=-1)
+        # y = att @ v
+        
+        # flash attention
+        y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+        
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         
         y = self.c_proj(y)
@@ -129,7 +134,7 @@ class GPT(nn.Module):
         if targets is not None:
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
         
-        return logits, loss   
+        return logits, loss
         
     @classmethod
     def from_pretrained(cls, model_type):
